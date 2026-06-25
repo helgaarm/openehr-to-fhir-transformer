@@ -104,6 +104,60 @@ class TestOpenEHRToFHIRTransformer(unittest.TestCase):
         self.assertEqual(len(full_urls), len(set(full_urls)))
         self.assertIn('observation-story-v1-2', resource_ids)
 
+    def test_eprescription_composition_maps_to_medication_request(self):
+        mapping_config = load_mapping_config('ePrescription_mapping_config.json')
+        transformer = OpenEHRToFHIRTransformer(mapping_config)
+        composition = transformer.load_composition('ePrescription (FHIR) - instance.json')
+
+        self.assertEqual(composition.template_id, 'ePrescription (FHIR)')
+        self.assertEqual(composition.data.content[0].xsi_type, 'INSTRUCTION')
+        self.assertTrue(
+            transformer.validate_composition(
+                composition,
+                composition_source='ePrescription (FHIR) - instance.json',
+            ),
+            transformer.validation_messages,
+        )
+
+        resources = transformer.map_composition_to_resources(composition)
+        medication_request = next(
+            resource for resource in resources if resource['resourceType'] == 'MedicationRequest'
+        )
+        bundle = transformer.build_bundle(resources)
+
+        self.assertEqual(medication_request['status'], 'active')
+        self.assertEqual(medication_request['intent'], 'order')
+        self.assertIn('concept', medication_request['medication'])
+        self.assertEqual(medication_request['subject']['reference'], f"Patient/{resources[0]['id']}")
+        self.assertIn('dosageInstruction', medication_request)
+        self.assertEqual(bundle['entry'][-1]['request']['url'], 'MedicationRequest')
+
+    def test_prefilled_eprescription_example_has_readable_medication_request(self):
+        mapping_config = load_mapping_config('ePrescription_mapping_config.json')
+        transformer = OpenEHRToFHIRTransformer(mapping_config)
+        composition = transformer.load_composition('ePrescription_prefilled_example.json')
+
+        self.assertTrue(
+            transformer.validate_composition(
+                composition,
+                composition_source='ePrescription_prefilled_example.json',
+            ),
+            transformer.validation_messages,
+        )
+
+        resources = transformer.map_composition_to_resources(composition)
+        medication_request = next(
+            resource for resource in resources if resource['resourceType'] == 'MedicationRequest'
+        )
+
+        self.assertEqual(medication_request['medication']['concept']['text'], 'Amoxicillin 500 mg capsule')
+        self.assertEqual(medication_request['reason'][0]['concept']['text'], 'Acute bacterial sinusitis')
+        self.assertEqual(medication_request['dosageInstruction'][0]['route']['text'], 'Oral')
+        self.assertEqual(
+            medication_request['dosageInstruction'][0]['text'],
+            'Take one capsule by mouth three times daily for seven days.',
+        )
+
     @patch('openEHR_to_FHIR_transformer.requests')
     def test_send_bundle_uses_requests_post(self, mock_requests):
         mock_response = mock_requests.post.return_value

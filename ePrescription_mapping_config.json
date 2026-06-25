@@ -1,0 +1,28 @@
+{
+  "template": {
+    "template_id": "ePrescription (FHIR)",
+    "opt_path": "ePrescription (FHIR).opt",
+    "java_validator_command": null
+  },
+  "patient_profile": "http://hl7.org/fhir/StructureDefinition/Patient",
+  "encounter_profile": "http://hl7.org/fhir/StructureDefinition/Encounter",
+  "mappings": [
+    {
+      "archetype_id": "openEHR-EHR-INSTRUCTION.medication_order.v0",
+      "resource_type": "MedicationRequest",
+      "fhir_profile": "http://hl7.org/fhir/StructureDefinition/MedicationRequest",
+      "intent": "order",
+      "fields": {
+        "medication": "/activities[at0001]/description[at0002]/items[at0070]",
+        "route": "/activities[at0001]/description[at0002]/items[at0091]",
+        "dosageText": "/activities[at0001]/description[at0002]/items[at0009]",
+        "doseQuantity": "/activities[at0001]/description[at0002]/items[at0056]/items[at0058]/items[at0144]",
+        "additionalInstruction": "/activities[at0001]/description[at0002]/items[at0044]",
+        "reason": "/activities[at0001]/description[at0002]/items[at0018]",
+        "status": "/activities[at0001]/description[at0002]/items[at0113]/items[openEHR-EHR-CLUSTER.medication_course_summary.v0]/items[at0001]",
+        "authoredOn": "/activities[at0001]/description[at0002]/items[at0113]/items[openEHR-EHR-CLUSTER.medication_course_summary.v0]/items[at0002]"
+      },
+      "description": "Medication order instruction mapped to a FHIR MedicationRequest."
+    }
+  ]
+}

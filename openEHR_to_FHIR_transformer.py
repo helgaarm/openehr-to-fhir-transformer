@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Union
 from fhir.resources.bundle import Bundle
 from fhir.resources.documentreference import DocumentReference
 from fhir.resources.encounter import Encounter
+from fhir.resources.medicationrequest import MedicationRequest
 from fhir.resources.observation import Observation
 from fhir.resources.patient import Patient
 
@@ -128,6 +129,8 @@ class OpenEHRToFHIRTransformer:
 
         if resource_type == 'Observation':
             return self._map_observation(item, mapping)
+        if resource_type == 'MedicationRequest':
+            return self._map_medication_request(item, mapping)
 
         resource = {
             'resourceType': resource_type,
@@ -474,6 +477,65 @@ class OpenEHRToFHIRTransformer:
         observation = Observation(**observation_data)
         return observation.dict(by_alias=True, exclude_none=True)
 
+    def _map_medication_request(self, item: ContentItem, mapping: Dict[str, Any]) -> Dict[str, Any]:
+        profile = mapping.get('fhir_profile')
+        fields = mapping.get('fields', {})
+        flattened_values = self._flatten_instruction_values(item)
+
+        medication_text = self._text_from_path(flattened_values, fields.get('medication')) or item.name
+        medication_request_data: Dict[str, Any] = {
+            'id': self._make_resource_id(item),
+            'status': self._medication_request_status(
+                self._text_from_path(flattened_values, fields.get('status'))
+            ),
+            'intent': mapping.get('intent', 'order'),
+            'medication': {'concept': {'text': medication_text}},
+            'subject': {'reference': self.patient_reference},
+        }
+
+        if profile:
+            medication_request_data['meta'] = {'profile': [profile]}
+
+        authored_on = self._fhir_datetime_from_path(flattened_values, fields.get('authoredOn'))
+        if authored_on:
+            medication_request_data['authoredOn'] = authored_on
+
+        reason_text = self._text_from_path(flattened_values, fields.get('reason'))
+        if reason_text:
+            medication_request_data['reason'] = [{'concept': {'text': reason_text}}]
+
+        dosage_instruction = self._map_dosage_instruction(fields, flattened_values)
+        if dosage_instruction:
+            medication_request_data['dosageInstruction'] = [dosage_instruction]
+
+        medication_request = MedicationRequest(**medication_request_data)
+        return medication_request.dict(by_alias=True, exclude_none=True)
+
+    def _map_dosage_instruction(
+        self,
+        fields: Dict[str, Any],
+        flattened_values: List[FlattenedValue],
+    ) -> Dict[str, Any]:
+        dosage: Dict[str, Any] = {}
+
+        dosage_text = self._text_from_path(flattened_values, fields.get('dosageText'))
+        if dosage_text:
+            dosage['text'] = dosage_text
+
+        additional_instruction = self._text_from_path(flattened_values, fields.get('additionalInstruction'))
+        if additional_instruction:
+            dosage['patientInstruction'] = additional_instruction
+
+        route = self._text_from_path(flattened_values, fields.get('route'))
+        if route:
+            dosage['route'] = {'text': route}
+
+        dose_value = self._fhir_value_from_path(flattened_values, fields.get('doseQuantity'))
+        if isinstance(dose_value, dict) and 'value' in dose_value:
+            dosage['doseAndRate'] = [{'doseQuantity': dose_value}]
+
+        return dosage
+
     def _extract_mapped_observation_value(
         self,
         fields: Dict[str, Any],
@@ -647,6 +709,87 @@ class OpenEHRToFHIRTransformer:
             flattened_values.extend(flatten_item_tree(item.data.events.data, '/data/events/data'))
 
         return flattened_values
+
+    def _flatten_instruction_values(self, item: ContentItem) -> List[FlattenedValue]:
+        flattened_values: List[FlattenedValue] = []
+
+        if item.protocol:
+            protocol_base = f'/protocol[{item.protocol.archetype_node_id}]'
+            flattened_values.extend(flatten_item_tree(item.protocol, protocol_base))
+
+        if item.description:
+            description_base = f'/description[{item.description.archetype_node_id}]'
+            flattened_values.extend(flatten_item_tree(item.description, description_base))
+
+        for activity in item.items:
+            if activity.description:
+                activity_id = activity.archetype_node_id or 'unknown'
+                description_id = activity.description.archetype_node_id or 'unknown'
+                description_base = f'/activities[{activity_id}]/description[{description_id}]'
+                flattened_values.extend(flatten_item_tree(activity.description, description_base))
+            if activity.protocol:
+                activity_id = activity.archetype_node_id or 'unknown'
+                protocol_id = activity.protocol.archetype_node_id or 'unknown'
+                protocol_base = f'/activities[{activity_id}]/protocol[{protocol_id}]'
+                flattened_values.extend(flatten_item_tree(activity.protocol, protocol_base))
+
+        return flattened_values
+
+    def _fhir_value_from_path(
+        self,
+        flattened_values: List[FlattenedValue],
+        path: Optional[str],
+    ) -> Optional[Any]:
+        if not path:
+            return None
+        flattened_value = self._get_flattened_value(flattened_values, path)
+        if not flattened_value:
+            return None
+        return self._value_to_fhir(flattened_value.value)
+
+    def _text_from_path(
+        self,
+        flattened_values: List[FlattenedValue],
+        path: Optional[str],
+    ) -> Optional[str]:
+        value = self._fhir_value_from_path(flattened_values, path)
+        if value is None:
+            return None
+        return self._string_from_fhir_value(value)
+
+    def _fhir_datetime_from_path(
+        self,
+        flattened_values: List[FlattenedValue],
+        path: Optional[str],
+    ) -> Optional[str]:
+        raw_value = self._text_from_path(flattened_values, path)
+        if not raw_value or '$' in raw_value:
+            return None
+        normalized = self._normalize_openEHR_datetime(raw_value)
+        if normalized:
+            return normalized
+        if 'T' in raw_value and len(raw_value) >= 10:
+            return raw_value
+        return None
+
+    def _medication_request_status(self, status_text: Optional[str]) -> str:
+        if not status_text:
+            return 'active'
+        normalized = status_text.strip().lower()
+        status_map = {
+            'active': 'active',
+            'on hold': 'on-hold',
+            'on-hold': 'on-hold',
+            'ended': 'ended',
+            'stopped': 'stopped',
+            'completed': 'completed',
+            'cancelled': 'cancelled',
+            'canceled': 'cancelled',
+            'draft': 'draft',
+            'entered in error': 'entered-in-error',
+            'unknown': 'unknown',
+        }
+        return status_map.get(normalized, 'active')
 
     def _get_flattened_value(
         self,

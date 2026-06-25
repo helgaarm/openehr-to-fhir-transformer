@@ -8,6 +8,7 @@ The project currently supports:
 - Lightweight template validation against `Corona_Anamnese.opt`.
 - Path-based openEHR value extraction and mapping.
 - FHIR `Patient`, `Encounter`, `Observation`, and optional `DocumentReference` generation.
+- ePrescription medication order mapping to FHIR `MedicationRequest`.
 - Optional generated PDF summary embedded in the FHIR bundle.
 - Flask API, Python client, PowerShell runner, and unit tests.
 
@@ -28,6 +29,12 @@ Include a generated PDF summary in the bundle:
 
 ```powershell
 .\run.ps1 -Mode transform -Output output_with_pdf.json -IncludePdf
+```
+
+Transform the ePrescription example:
+
+```powershell
+.\run.ps1 -Mode transform -Composition ePrescription_prefilled_example.json -Mapping ePrescription_mapping_config.json -Output eprescription_bundle.json
 ```
 
 Start the API:
@@ -56,6 +63,8 @@ Default transform creates a FHIR transaction bundle with:
 - `Encounter`
 - mapped `Observation` resources
 
+Using `ePrescription_mapping_config.json` maps the medication order instruction to a FHIR `MedicationRequest`.
+
 With `-IncludePdf` or `include_pdf=true`, the bundle also includes:
 
 - `DocumentReference` with an embedded base64 `application/pdf` attachment
@@ -66,4 +75,4 @@ With `-IncludePdf` or `include_pdf=true`, the bundle also includes:
 .\run.ps1 -Mode test
 ```
 
-Current focused test suite covers parsing, path-based mapping, components, Unicode output, API behavior, PDF `DocumentReference`, and the HTML upload form.
+Current focused test suite covers parsing, path-based mapping, components, Unicode output, API behavior, PDF `DocumentReference`, canonical ePrescription parsing, `MedicationRequest` mapping, and the HTML upload form.

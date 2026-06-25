@@ -62,6 +62,14 @@ curl -X POST http://localhost:5000/transform \
   -F "include_pdf=true"
 ```
 
+ePrescription example:
+
+```bash
+curl -X POST http://localhost:5000/transform \
+  -F "composition=@ePrescription_prefilled_example.json" \
+  -F "mapping=@ePrescription_mapping_config.json"
+```
+
 ### POST /transform/json
 
 Transforms a JSON request body. `demographics` is optional.
@@ -107,7 +115,7 @@ Successful responses have this shape:
 }
 ```
 
-The bundle entries include `Patient`, `Encounter`, and configured `Observation` resources. If `include_pdf` is true, the last resource is a `DocumentReference` containing a base64 encoded `application/pdf` attachment.
+The bundle entries include `Patient`, `Encounter`, and configured resources such as `Observation` or `MedicationRequest`. If `include_pdf` is true, the last resource is a `DocumentReference` containing a base64 encoded `application/pdf` attachment.
 
 ## Request Data
 
@@ -145,6 +153,8 @@ The current mapping format uses a `mappings` array:
 ```
 
 Observation mappings can target exact flattened openEHR paths. Extra values can be mapped into FHIR `Observation.component[]` using `fields.components`.
+
+The ePrescription example uses `ePrescription_mapping_config.json` to map `openEHR-EHR-INSTRUCTION.medication_order.v0` to a FHIR `MedicationRequest`. Use `ePrescription_prefilled_example.json` for readable sample values.
 
 ### Demographics
 

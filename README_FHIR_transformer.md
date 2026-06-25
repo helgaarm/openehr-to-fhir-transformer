@@ -7,12 +7,16 @@ This module transforms an openEHR composition JSON document into FHIR resources 
 - `openEHR_to_FHIR_transformer.py`: CLI transformer. Loads openEHR JSON, validates template metadata, maps resources, builds a FHIR bundle, and can post it to a FHIR endpoint.
 - `openEHR_model.py`: Lightweight parser for the openEHR JSON structures used by the example composition. It repairs common mojibake and flattens item trees into path-addressable values.
 - `mapping_config_example.json`: Example mapping configuration from openEHR archetype IDs and element paths to FHIR resource types, profiles, fields, components, and codes.
+- `ePrescription_mapping_config.json`: Example mapping configuration for the ePrescription template and `MedicationRequest` output.
 - `pdf_document.py`: Small built-in PDF writer used for generated summary attachments.
 - `fhir_api.py`: Flask API wrapper around the transformer.
 - `fhir_client.py`: Python client for the Flask API.
 - `run.ps1`: PowerShell helper for install, transform, API, and test runs.
 - `Corona_Anamnese_composition_example.json`: Example openEHR composition payload.
 - `Corona_Anamnese.opt`: Example operational template used for lightweight template metadata checks.
+- `ePrescription (FHIR) - instance.json`: Example canonical openEHR JSON composition for medication order mapping.
+- `ePrescription_prefilled_example.json`: Readable ePrescription example with realistic medication order values.
+- `ePrescription (FHIR).opt`: Example operational template for the ePrescription composition.
 - `person.json`: Optional demographics payload used to create the `Patient`.
 
 ## Setup
@@ -91,6 +95,7 @@ PowerShell helper:
 ```powershell
 .\run.ps1 -Mode transform -Output output_bundle.json
 .\run.ps1 -Mode transform -Output output_with_pdf.json -IncludePdf
+.\run.ps1 -Mode transform -Composition ePrescription_prefilled_example.json -Mapping ePrescription_mapping_config.json -Output eprescription_bundle.json
 .\run.ps1 -Mode api
 .\run.ps1 -Mode test
 ```
@@ -158,6 +163,14 @@ The parser flattens observation values into openEHR-style paths. Mapping entries
 
 Supported main value fields are `valueString`, `valueQuantity`, and `valueCodeableConcept`. Component mappings support the same value types through `value_field`.
 
+## ePrescription Mapping
+
+`ePrescription_mapping_config.json` maps `openEHR-EHR-INSTRUCTION.medication_order.v0` to a FHIR `MedicationRequest`. The mapper supports canonical openEHR JSON using `_type` and `archetype_node_id`, extracts medication text, route, dosage text, dose quantity, additional instructions, reason, course status, and order date, then emits a transaction bundle containing `Patient`, `Encounter`, and `MedicationRequest`.
+
+Use `ePrescription_prefilled_example.json` for a readable medication order example. It currently represents Amoxicillin 500 mg capsule, oral route, one capsule three times daily for seven days, with acute bacterial sinusitis as the reason.
+
+The generated `ePrescription (FHIR) - instance.json` is also useful for parser coverage, but it contains placeholder/random values and is less suitable as a human-readable demo.
+
 ## Template and Java SDK Validation Hook
 
 The mapping config can declare expected template metadata:
@@ -179,7 +192,7 @@ For fuller openEHR validation, keep Python as the FHIR mapping layer and add a J
 ## Output Notes
 
 - The default output is a FHIR transaction `Bundle`.
-- Generated resources currently include `Patient`, `Encounter`, and configured `Observation` resources.
+- Generated resources currently include `Patient`, `Encounter`, configured `Observation` resources, and configured `MedicationRequest` resources.
 - Repeated mapped archetypes get stable numeric ID suffixes, so transaction bundle `fullUrl` values remain unique.
 - UTC timestamps are emitted by the installed FHIR library as `+00:00`, for example `2024-06-25T10:00:00+00:00`.
 - Quantity values include the UCUM system and mapped UCUM code when a known unit is found, for example Celsius to `Cel`.
@@ -208,7 +221,7 @@ python -m pytest test_openEHR_to_FHIR_transformer.py -q -p no:cacheprovider
 - Replace the lightweight OPT check with full EHRbase openEHR SDK validation.
 - Implement a Java sidecar validator that uses the existing `template.java_validator_command` hook with EHRbase SDK validation, OPT, and serialization modules.
 - Extend `mapping_config_example.json` with additional archetypes, paths, FHIR profiles, components, and terminology mappings.
-- Add mappings for `Condition`, `MedicationRequest`, `Procedure`, or other FHIR resources as needed.
+- Add mappings for `Condition`, `Procedure`, or other FHIR resources as needed.
 
 ## Limitations
 
