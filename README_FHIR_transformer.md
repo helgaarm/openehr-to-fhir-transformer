@@ -20,8 +20,11 @@ This module transforms an openEHR composition JSON document into FHIR resources 
 PowerShell:
 
 ```powershell
+py -m venv ..\.venv
 .\run.ps1 -Mode install
 ```
+
+`run.ps1` expects Python at `..\.venv\Scripts\python.exe` relative to this directory.
 
 Manual:
 

@@ -16,10 +16,13 @@ The project currently supports:
 From this directory:
 
 ```powershell
+py -m venv ..\.venv
 .\run.ps1 -Mode install
 .\run.ps1 -Mode test
 .\run.ps1 -Mode transform -Output output_bundle.json
 ```
+
+`run.ps1` uses the virtual environment at `..\.venv\Scripts\python.exe`, so create that environment first on a fresh checkout.
 
 Include a generated PDF summary in the bundle:
 
