@@ -33,7 +33,9 @@ def build_text_pdf(title: str, lines: Iterable[str]) -> bytes:
 
     catalog_id = add_object(b'')
     pages_id = add_object(b'')
-    font_id = add_object(b'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>')
+    font_id = add_object(
+        b'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>'
+    )
     page_ids: List[int] = []
 
     for page_lines in pages:
@@ -78,16 +80,30 @@ def _page_content_stream(
         font_size = 16 if index == 0 else 10
         commands.append(f'/F1 {font_size} Tf')
         commands.append(f'1 0 0 1 {margin_left} {y} Tm')
-        commands.append(f'<{_pdf_utf16_hex(line)}> Tj')
+        commands.append(f'{_pdf_literal(line)} Tj')
         y -= line_height + (6 if index == 0 else 0)
 
     commands.append('ET')
-    return '\n'.join(commands).encode('ascii')
+    return '\n'.join(commands).encode('latin-1')
 
 
-def _pdf_utf16_hex(text: str) -> str:
+def _pdf_literal(text: str) -> str:
     normalized = text.replace('\r', ' ').replace('\n', ' ')
-    return (b'\xfe\xff' + normalized.encode('utf-16-be')).hex().upper()
+    encoded = normalized.encode('cp1252', errors='replace')
+    escaped = []
+    for byte in encoded:
+        char = chr(byte)
+        if char == '\\':
+            escaped.append('\\\\')
+        elif char == '(':
+            escaped.append('\\(')
+        elif char == ')':
+            escaped.append('\\)')
+        elif byte < 32 or byte > 126:
+            escaped.append(f'\\{byte:03o}')
+        else:
+            escaped.append(char)
+    return '(' + ''.join(escaped) + ')'
 
 
 def _assemble_pdf(objects: List[bytes]) -> bytes:
