@@ -158,6 +158,19 @@ class TestOpenEHRToFHIRTransformer(unittest.TestCase):
             'Take one capsule by mouth three times daily for seven days.',
         )
 
+    def test_eprescription_pdf_summary_includes_instruction_values(self):
+        mapping_config = load_mapping_config('ePrescription_mapping_config.json')
+        transformer = OpenEHRToFHIRTransformer(mapping_config)
+        composition = transformer.load_composition('ePrescription_prefilled_example.json')
+
+        summary_text = '\n'.join(transformer._composition_summary_lines(composition))
+
+        self.assertIn('Medication order (INSTRUCTION):', summary_text)
+        self.assertIn('Amoxicillin 500 mg capsule', summary_text)
+        self.assertIn('Oral', summary_text)
+        self.assertIn('Take one capsule by mouth three times daily for seven days.', summary_text)
+        self.assertIn('Acute bacterial sinusitis', summary_text)
+
     @patch('openEHR_to_FHIR_transformer.requests')
     def test_send_bundle_uses_requests_post(self, mock_requests):
         mock_response = mock_requests.post.return_value

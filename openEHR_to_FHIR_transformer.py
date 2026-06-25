@@ -397,11 +397,16 @@ class OpenEHRToFHIRTransformer:
                 lines.append('')
                 lines.append(f'[{item.name}]')
                 continue
-            if item.xsi_type != 'OBSERVATION':
+            if item.xsi_type == 'ACTIVITY':
                 continue
 
-            lines.append(f'{item.name or item.archetype_node_id}:')
-            flattened_values = self._flatten_content_item_values(item)
+            flattened_values = self._summary_values_for_item(item)
+            if not flattened_values:
+                continue
+
+            item_type = item.xsi_type or 'CONTENT'
+            lines.append('')
+            lines.append(f'{item.name or item.archetype_node_id} ({item_type}):')
             if not flattened_values:
                 lines.append('  No values found')
                 continue
@@ -414,6 +419,23 @@ class OpenEHRToFHIRTransformer:
                 )
 
         return lines
+
+    def _summary_values_for_item(self, item: ContentItem) -> List[FlattenedValue]:
+        if item.xsi_type == 'OBSERVATION':
+            return self._flatten_content_item_values(item)
+        if item.xsi_type == 'INSTRUCTION':
+            return self._flatten_instruction_values(item)
+
+        flattened_values: List[FlattenedValue] = []
+        if item.protocol:
+            flattened_values.extend(
+                flatten_item_tree(item.protocol, f'/protocol[{item.protocol.archetype_node_id}]')
+            )
+        if item.description:
+            flattened_values.extend(
+                flatten_item_tree(item.description, f'/description[{item.description.archetype_node_id}]')
+            )
+        return flattened_values
 
     def _iter_content_items(self, items: List[ContentItem]) -> List[ContentItem]:
         flattened: List[ContentItem] = []
