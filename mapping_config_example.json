@@ -1,0 +1,127 @@
+{
+  "template": {
+    "template_id": "Corona_Anamnese",
+    "opt_path": "Corona_Anamnese.opt",
+    "java_validator_command": null
+  },
+  "patient_profile": "http://hl7.org/fhir/StructureDefinition/Patient",
+  "encounter_profile": "http://hl7.org/fhir/StructureDefinition/Encounter",
+  "default_profile": "http://hl7.org/fhir/StructureDefinition/Observation",
+  "terminology_system": "http://terminology.openehr.org/CodeSystem/openehr-archetypes",
+  "mappings": [
+    {
+      "archetype_id": "openEHR-EHR-DEMOGRAPHIC-PERSON.person.v0",
+      "resource_type": "Patient",
+      "fhir_profile": "http://hl7.org/fhir/StructureDefinition/Patient",
+      "description": "Demographic person data mapped to a Patient resource."
+    },
+    {
+      "archetype_id": "openEHR-EHR-ENCOUNTER.encounter.v1",
+      "resource_type": "Encounter",
+      "fhir_profile": "http://hl7.org/fhir/StructureDefinition/Encounter",
+      "description": "OpenEHR encounter mapped to FHIR Encounter."
+    },
+    {
+      "archetype_id": "openEHR-EHR-OBSERVATION.story.v1",
+      "resource_type": "Observation",
+      "fhir_profile": "http://hl7.org/fhir/StructureDefinition/Observation",
+      "coding": {
+        "system": "http://loinc.org",
+        "code": "34109-9",
+        "display": "History of Problem"
+      },
+      "fields": {
+        "effectiveDateTime": "/data/events/time",
+        "valueString": "/data/events/data/items[at0004]"
+      },
+      "description": "Patient narrative history or story mapped to an Observation resource."
+    },
+    {
+      "archetype_id": "openEHR-EHR-OBSERVATION.symptom_sign_screening.v0",
+      "resource_type": "Observation",
+      "fhir_profile": "http://hl7.org/fhir/StructureDefinition/Observation",
+      "coding": {
+        "system": "http://loinc.org",
+        "code": "54899-0",
+        "display": "Symptom screening"
+      },
+      "fields": {
+        "effectiveDateTime": "/data/events/time",
+        "valueString": "/data/events/data/items[at0022]/items[at0004]",
+        "components": [
+          {
+            "path": "/data/events/data/items[at0022]/items[at0005]",
+            "code": {
+              "text": "Present?"
+            },
+            "value_field": "valueCodeableConcept"
+          }
+        ]
+      },
+      "description": "Symptom and sign screening questions mapped to Observation with coded answer component."
+    },
+    {
+      "archetype_id": "openEHR-EHR-OBSERVATION.body_temperature.v2",
+      "resource_type": "Observation",
+      "fhir_profile": "http://hl7.org/fhir/StructureDefinition/Observation",
+      "coding": {
+        "system": "http://loinc.org",
+        "code": "8310-5",
+        "display": "Body temperature"
+      },
+      "fields": {
+        "effectiveDateTime": "/data/events/time",
+        "valueQuantity": "/data/events/data/items[at0004]"
+      },
+      "description": "Body temperature observation."
+    },
+    {
+      "archetype_id": "openEHR-EHR-OBSERVATION.exposure_assessment.v0",
+      "resource_type": "Observation",
+      "fhir_profile": "http://hl7.org/fhir/StructureDefinition/Observation",
+      "coding": {
+        "system": "http://loinc.org",
+        "code": "87909-4",
+        "display": "Exposure assessment"
+      },
+      "fields": {
+        "effectiveDateTime": "/data/events/time",
+        "valueString": "/data/events/data/items[at0043]",
+        "components": [
+          {
+            "path": "/data/events/data/items[at0057]",
+            "code": {
+              "text": "Presence of any exposure?"
+            },
+            "value_field": "valueCodeableConcept"
+          }
+        ]
+      },
+      "description": "Exposure assessment observation."
+    },
+    {
+      "archetype_id": "openEHR-EHR-OBSERVATION.travel_history.v0",
+      "resource_type": "Observation",
+      "fhir_profile": "http://hl7.org/fhir/StructureDefinition/Observation",
+      "coding": {
+        "system": "http://loinc.org",
+        "code": "94651-7",
+        "display": "Travel history"
+      },
+      "fields": {
+        "effectiveDateTime": "/data/events/time",
+        "valueCodeableConcept": "/data/events/data/items[at0111]",
+        "components": [
+          {
+            "path": "/data/events/data/items[at0134]/items[openEHR-EHR-CLUSTER.location.v1]/items[at0046]",
+            "code": {
+              "text": "Location Description"
+            },
+            "value_field": "valueString"
+          }
+        ]
+      },
+      "description": "Travel history observation with location detail component."
+    }
+  ]
+}

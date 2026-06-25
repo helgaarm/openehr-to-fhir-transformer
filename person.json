@@ -1,0 +1,58 @@
+{
+  "_type": "COMPOSITION",
+  "archetype_node_id": "openEHR-DEMOGRAPHIC-PERSON.person.v0",
+  "name": {
+    "value": "Person Data"
+  },
+  "uid": {
+    "_type": "OBJECT_VERSION_ID",
+    "value": "6bb18d27-edad-4c4a-8d0a-da351194aa30"
+  },
+  "archetype_details": {
+    "archetype_id": {
+      "value": "openEHR-DEMOGRAPHIC-PERSON.person.v0"
+    },
+    "template_id": {
+      "value": "person.V0"
+    },
+    "rm_version": "1.0.2"
+  },
+  "language": {
+    "terminology_id": {
+      "value": "ISO_639-1"
+    },
+    "code_string": "en"
+  },
+  "territory": {
+    "terminology_id": {
+      "value": "ISO_3166-1"
+    },
+    "code_string": "NL"
+  },
+  "category": {
+    "value": "event",
+    "defining_code": {
+      "terminology_id": {
+        "value": "openehr"
+      },
+      "code_string": "433"
+    }
+  },
+  "composer": {
+    "_type": "PARTY_IDENTIFIED",
+    "external_ref": {
+      "id": {
+        "_type": "GENERIC_ID",
+        "value": "16b74749-e6aa-4945-b760-b42bdc07098a"
+      },
+      "namespace": "openEHRSys.example.com",
+      "type": "PERSON"
+    },
+    "name": "A name"
+  },
+  "content": [
+  {
+	  "name":"Ritika"
+  }
+  ]
+}
