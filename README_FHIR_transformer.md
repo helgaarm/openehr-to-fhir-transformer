@@ -1,22 +1,29 @@
-# openEHR to FHIR Transformation Boilerplate
+# openEHR to FHIR Transformation
 
 This module transforms an openEHR composition JSON document into FHIR resources and wraps them in a FHIR transaction `Bundle`.
 
 ## Files
 
-- `openEHR_to_FHIR_transformer.py`: Main CLI transformer. Loads openEHR JSON, validates template metadata, maps resources, builds a FHIR bundle, and can post it to a FHIR endpoint.
-- `openEHR_model.py`: Lightweight parser for the openEHR JSON structures used by the example composition. It also repairs common mojibake and flattens item trees into path-addressable values.
+- `openEHR_to_FHIR_transformer.py`: CLI transformer. Loads openEHR JSON, validates template metadata, maps resources, builds a FHIR bundle, and can post it to a FHIR endpoint.
+- `openEHR_model.py`: Lightweight parser for the openEHR JSON structures used by the example composition. It repairs common mojibake and flattens item trees into path-addressable values.
 - `mapping_config_example.json`: Example mapping configuration from openEHR archetype IDs and element paths to FHIR resource types, profiles, fields, components, and codes.
-- `Corona_Anamnese_composition_example.json`: Example openEHR composition payload.
-- `Corona_Anamnese.opt`: Example operational template used for lightweight template metadata checks.
-- `person.json`: Optional demographics payload used to create the `Patient`.
+- `pdf_document.py`: Small built-in PDF writer used for generated summary attachments.
 - `fhir_api.py`: Flask API wrapper around the transformer.
 - `fhir_client.py`: Python client for the Flask API.
 - `run.ps1`: PowerShell helper for install, transform, API, and test runs.
+- `Corona_Anamnese_composition_example.json`: Example openEHR composition payload.
+- `Corona_Anamnese.opt`: Example operational template used for lightweight template metadata checks.
+- `person.json`: Optional demographics payload used to create the `Patient`.
 
 ## Setup
 
-Create or activate a virtual environment, then install dependencies:
+PowerShell:
+
+```powershell
+.\run.ps1 -Mode install
+```
+
+Manual:
 
 ```bash
 pip install -r requirements.txt
@@ -34,8 +41,9 @@ The project uses `fhir.resources==7.1.0`, which serializes validated FHIR models
 5. Create an `Encounter` from composition context.
 6. Recursively flatten openEHR `ELEMENT` values into path-addressable values.
 7. Map configured openEHR content items to FHIR resources using archetype IDs and field paths.
-8. Build a FHIR transaction `Bundle`.
-9. Optionally send the bundle to a FHIR endpoint.
+8. Optionally generate a PDF summary and add it as a FHIR `DocumentReference`.
+9. Build a FHIR transaction `Bundle`.
+10. Optionally send the bundle to a FHIR endpoint.
 
 ## CLI Usage
 
@@ -92,6 +100,12 @@ Start the Flask API:
 python fhir_api.py
 ```
 
+Or:
+
+```powershell
+.\run.ps1 -Mode api
+```
+
 Transform using uploaded files:
 
 ```bash
@@ -102,8 +116,18 @@ curl -X POST http://localhost:5000/transform \
   -F "include_pdf=true"
 ```
 
+Transform using JSON:
+
+```json
+{
+  "composition": { "...": "openEHR composition JSON" },
+  "mapping": { "...": "mapping config JSON" },
+  "demographics": { "...": "optional demographics JSON" },
+  "include_pdf": true
+}
+```
+
 The transformer accepts demographics both as a file path in CLI usage and as an already parsed JSON object in API usage.
-For JSON API usage, set `"include_pdf": true` to include the generated PDF summary.
 
 ## Path-Based Mapping
 
@@ -154,14 +178,20 @@ For fuller openEHR validation, keep Python as the FHIR mapping layer and add a J
 - The default output is a FHIR transaction `Bundle`.
 - Generated resources currently include `Patient`, `Encounter`, and configured `Observation` resources.
 - UTC timestamps are emitted by the installed FHIR library as `+00:00`, for example `2024-06-25T10:00:00+00:00`.
-- Quantity values include the UCUM system and mapped UCUM code when a known unit is found, for example `°C` to `Cel`.
-- Common mojibake in source text, such as `KÃ¶rpertemperatur` and `Â°C`, is repaired while parsing.
+- Quantity values include the UCUM system and mapped UCUM code when a known unit is found, for example Celsius to `Cel`.
+- Common mojibake in source text is repaired while parsing, for example mis-decoded German characters and degree symbols.
 - Questionnaire-like observations can preserve extra openEHR elements as FHIR `Observation.component[]`.
 - If `--include-pdf` or `include_pdf=true` is used, the bundle includes a FHIR `DocumentReference` with an embedded base64 PDF attachment generated from the parsed openEHR composition.
 
 ## Tests
 
-Run the transformer tests from this directory:
+Run tests:
+
+```powershell
+.\run.ps1 -Mode test
+```
+
+Or manually:
 
 ```bash
 python -m pytest test_openEHR_to_FHIR_transformer.py -q -p no:cacheprovider

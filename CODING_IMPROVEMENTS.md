@@ -1,144 +1,182 @@
-# OpenEHR Coding and Terminology Improvements
+# Coding, Terminology, and Mapping Improvements
 
-## Summary of Changes
+## Summary
 
-The transformer now properly preserves and uses openEHR coding/terminology in FHIR resources, addressing concerns about strange transformations losing clinical coding information.
+The transformer preserves more clinical coding and structure from the openEHR composition when producing FHIR resources. It now combines:
 
-## Key Improvements
+- openEHR datatype parsing
+- terminology-aware `DV_CODED_TEXT` handling
+- path-based value extraction
+- mapped FHIR observation codes
+- FHIR `Observation.component[]` support for additional openEHR values
+- optional generated PDF summary as a FHIR `DocumentReference`
 
-### 1. Enhanced OpenEHR Data Model (openEHR_model.py)
+## openEHR Datatype Handling
 
-**DVCodedText Class Enhancement:**
-- Added `terminology_id` field to preserve the terminology system (e.g., "local", "SNOMED-CT", "ICD-10")
-- Previously: Lost terminology information, only kept code string
-- Now: Preserves full coding context
+### `DV_CODED_TEXT`
 
-### 2. Improved Value Extraction (openEHR_to_FHIR_transformer.py)
+`openEHR_model.py` preserves:
 
-**New Terminology Mapping Method:**
-- Added `_terminology_to_system()` method to map openEHR terminology IDs to FHIR coding system URLs
-- Maps "local" → http://terminology.openehr.org/CodeSystem/local
-- Maps "SNOMED-CT" → http://snomed.info/sct
-- Maps "ICD-10" → http://hl7.org/fhir/sid/icd-10
-- Maps unknown → http://terminology.openehr.org/CodeSystem/{terminology_id}
+- display text
+- code string
+- terminology ID
 
-**Enhanced Value Handling:**
-- Updated `_value_from_element()` to use proper terminology systems instead of hardcoded v2-0136
-- Now correctly creates valueCodeableConcept with proper coding system from openEHR terminology
+This allows the transformer to produce FHIR `CodeableConcept` values with the correct coding system.
 
-### 3. Observation Code Mapping (openEHR_to_FHIR_transformer.py)
+Example openEHR local coded value:
 
-**New Observation Code Extraction:**
-- Added `_extract_observation_code()` method
-- Uses archetype mapping to look up LOINC/SNOMED codes for observation types
-- Falls back to archetype-based coding if not in mapping
-- Creates proper FHIR CodeableConcept structures with system + code + display
-
-**Archetype-to-Coding Conversion:**
-- Added `_archetype_to_coding()` method
-- Converts openEHR archetype IDs to coding format
-- Example: "openEHR-EHR-OBSERVATION.body_temperature.v2" → {system: "http://terminology.openehr.org/CodeSystem/openehr-archetypes", code: "body_temperature"}
-
-### 4. Enhanced Mapping Configuration (mapping_config_example.json)
-
-Added LOINC codes for each observation type:
-- story.v1 → 34109-9 (History of Problem)
-- symptom_sign_screening.v0 → 54899-0 (Symptom screening)
-- body_temperature.v2 → 8310-5 (Body temperature)
-- exposure_assessment.v0 → 87909-4 (Exposure assessment)
-- travel_history.v0 → 94651-7 (Travel history)
-
-Added `terminology_system` field for fallback coding system
-
-## Before vs After
-
-### Before
 ```json
 {
-  "code": {"text": "Körpertemperatur"}
+  "coding": [
+    {
+      "system": "http://terminology.openehr.org/CodeSystem/local",
+      "code": "at0112",
+      "display": "Ja"
+    }
+  ],
+  "text": "Ja"
 }
 ```
 
-### After
+### `DV_QUANTITY`
+
+Quantities are mapped to FHIR `Quantity` with:
+
+- `value`
+- `unit`
+- UCUM `system`
+- mapped UCUM `code`
+
+Example body temperature:
+
 ```json
 {
-  "code": {
-    "coding": [
-      {
-        "system": "http://loinc.org",
-        "code": "8310-5",
-        "display": "Body temperature"
-      }
-    ],
-    "text": "Körpertemperatur"
-  }
+  "value": 37.6,
+  "unit": "°C",
+  "system": "http://unitsofmeasure.org",
+  "code": "Cel"
 }
 ```
 
-## Value Coding Preservation
+## Terminology Mapping
 
-### Before (Travel History observation value)
+The transformer maps openEHR terminology IDs to FHIR coding system URLs:
+
+| openEHR terminology | FHIR system |
+| --- | --- |
+| `local` | `http://terminology.openehr.org/CodeSystem/local` |
+| `openehr` | `http://terminology.openehr.org/CodeSystem/local` |
+| `SNOMED-CT` | `http://snomed.info/sct` |
+| `ICD-10` | `http://hl7.org/fhir/sid/icd-10` |
+| `ICD-10-CM` | `http://hl7.org/fhir/sid/icd-10-cm` |
+| `LOINC` | `http://loinc.org` |
+
+Unknown terminology IDs fall back to:
+
+```text
+http://terminology.openehr.org/CodeSystem/{terminology_id}
+```
+
+## Observation Code Mapping
+
+`mapping_config_example.json` assigns FHIR codes for the example observation archetypes:
+
+| openEHR archetype | FHIR code |
+| --- | --- |
+| `openEHR-EHR-OBSERVATION.story.v1` | LOINC `34109-9` |
+| `openEHR-EHR-OBSERVATION.symptom_sign_screening.v0` | LOINC `54899-0` |
+| `openEHR-EHR-OBSERVATION.body_temperature.v2` | LOINC `8310-5` |
+| `openEHR-EHR-OBSERVATION.exposure_assessment.v0` | LOINC `87909-4` |
+| `openEHR-EHR-OBSERVATION.travel_history.v0` | LOINC `94651-7` |
+
+If an archetype has no explicit coding in the mapping config, the transformer falls back to an openEHR archetype coding system.
+
+## Path-Based Value Extraction
+
+The parser flattens openEHR item trees into paths such as:
+
+```text
+/data/events/data/items[at0022]/items[at0005]
+```
+
+Mapping config can then target exact fields:
+
 ```json
 {
-  "valueCodeableConcept": {
-    "coding": [
+  "fields": {
+    "effectiveDateTime": "/data/events/time",
+    "valueString": "/data/events/data/items[at0022]/items[at0004]",
+    "components": [
       {
-        "system": "http://terminology.hl7.org/CodeSystem/v2-0136",
-        "code": "at0112",
-        "display": "Ja"
+        "path": "/data/events/data/items[at0022]/items[at0005]",
+        "code": {
+          "text": "Present?"
+        },
+        "value_field": "valueCodeableConcept"
       }
     ]
   }
 }
 ```
 
-### After (With Proper Terminology System)
+This avoids the older behavior where only the first value in an observation was used.
+
+## Observation Components
+
+Questionnaire-like openEHR observations often contain more than one meaningful value. The transformer now maps secondary values into FHIR `Observation.component[]`.
+
+Examples:
+
+- Symptom screening maps the symptom text as `valueString` and the present/absent coded answer as a component.
+- Exposure assessment maps the exposure agent as `valueString` and exposure presence as a component.
+- Travel history maps the high-risk area answer as `valueCodeableConcept` and location text as a component.
+
+## Unicode and Mojibake Repair
+
+Some example input text contains common UTF-8-as-Latin-1 artifacts. The parser repairs common cases before mapping so output can contain readable text such as:
+
+```text
+Körpertemperatur
+°C
+```
+
+The JSON output is written with `ensure_ascii=False`, so readable Unicode is preferred over escaped sequences where possible.
+
+## PDF DocumentReference
+
+When `--include-pdf`, `-IncludePdf`, or `include_pdf=true` is used, the transformer:
+
+1. Generates a simple human-readable PDF summary from the parsed openEHR composition.
+2. Base64-encodes the PDF.
+3. Adds a FHIR `DocumentReference` to the transaction bundle.
+
+The `DocumentReference.content[0].attachment` uses:
+
 ```json
 {
-  "valueCodeableConcept": {
-    "coding": [
-      {
-        "system": "http://terminology.openehr.org/CodeSystem/local",
-        "code": "at0112",
-        "display": "Ja"
-      }
-    ]
-  }
+  "contentType": "application/pdf",
+  "data": "<base64-pdf>",
+  "title": "Corona_Anamnese Composition Summary.pdf"
 }
 ```
 
-## Implementation Details
+## Validation
 
-### File Changes
+The transformer performs lightweight validation:
 
-1. **openEHR_model.py**
-   - Enhanced DVCodedText to capture terminology_id
-   - Updated _parse_value() to extract full code information
+- composition has content
+- composition template ID matches the configured template ID
+- configured OPT file exists and contains the expected template ID
 
-2. **openEHR_to_FHIR_transformer.py**
-   - New: _extract_observation_code() - extracts codes with mapping support
-   - New: _archetype_to_coding() - converts archetypes to FHIR coding
-   - New: _terminology_to_system() - maps terminology IDs to system URLs
-   - Updated: _map_observation() - uses _extract_observation_code()
-   - Updated: _value_from_element() - uses proper terminology systems
+For stronger validation, configure `template.java_validator_command` to call a Java sidecar built with the EHRbase openEHR SDK.
 
-3. **mapping_config_example.json**
-   - Added "coding" field with LOINC codes for each observation archetype
-   - Added "terminology_system" for fallback coding
+## Current Result
 
-## Result
+The example transform now produces:
 
-All 5 observations in the example bundle now have:
-✓ Proper LOINC codes from mapping
-✓ Full CodeableConcept structures for both observation codes and values
-✓ Correct terminology system references (LOINC for observations, local for openEHR codes)
-✓ Preserved openEHR codes in value fields
-✓ Proper FHIR validation
+- `Patient`
+- `Encounter`
+- 5 mapped `Observation` resources
+- optional `DocumentReference` with embedded PDF
 
-## Extensibility
-
-The mapping configuration is extensible:
-- Add more archetypes with their LOINC/SNOMED codes
-- Map specific value codes to standard terminologies
-- Override the terminology system per archetype
-- Support custom coding system mappings
+The focused test suite covers coding, path mapping, components, Unicode output, API behavior, PDF generation, and the HTML upload form.

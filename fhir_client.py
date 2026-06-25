@@ -108,15 +108,18 @@ if __name__ == '__main__':
     import sys
 
     if len(sys.argv) < 4:
-        print('Usage: python fhir_client.py <composition.json> <mapping.json> <output.json> [demographics.json]')
+        print('Usage: python fhir_client.py <composition.json> <mapping.json> <output.json> [demographics.json] [--include-pdf]')
         print('\nExample:')
-        print('  python fhir_client.py Corona_Anamnese_composition_example.json mapping_config_example.json output_bundle.json person.json')
+        print('  python fhir_client.py Corona_Anamnese_composition_example.json mapping_config_example.json output_bundle.json person.json --include-pdf')
         sys.exit(1)
 
-    composition_file = sys.argv[1]
-    mapping_file = sys.argv[2]
-    output_file = sys.argv[3]
-    demographics_file = sys.argv[4] if len(sys.argv) > 4 else None
+    include_pdf = '--include-pdf' in sys.argv
+    args = [arg for arg in sys.argv[1:] if arg != '--include-pdf']
+
+    composition_file = args[0]
+    mapping_file = args[1]
+    output_file = args[2]
+    demographics_file = args[3] if len(args) > 3 else None
 
     try:
         client = FHIRTransformationClient()
@@ -130,6 +133,7 @@ if __name__ == '__main__':
             mapping_file,
             output_file,
             demographics_file,
+            include_pdf=include_pdf,
         )
     except Exception as e:
         print(f'Error: {e}')

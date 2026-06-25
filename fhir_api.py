@@ -292,7 +292,12 @@ def api_docs():
                 'parameters': {
                     'composition': {'type': 'file', 'required': True, 'description': 'openEHR composition JSON'},
                     'mapping': {'type': 'file', 'required': True, 'description': 'Mapping configuration JSON'},
-                    'demographics': {'type': 'file', 'required': False, 'description': 'Patient demographics JSON'}
+                    'demographics': {'type': 'file', 'required': False, 'description': 'Patient demographics JSON'},
+                    'include_pdf': {
+                        'type': 'form field',
+                        'required': False,
+                        'description': 'Set to true to add a generated PDF summary as a FHIR DocumentReference'
+                    }
                 },
                 'response': {
                     'success': True,
@@ -308,7 +313,12 @@ def api_docs():
                 'parameters': {
                     'composition': {'type': 'object', 'required': True, 'description': 'openEHR composition object'},
                     'mapping': {'type': 'object', 'required': True, 'description': 'Mapping configuration object'},
-                    'demographics': {'type': 'object', 'required': False, 'description': 'Patient demographics object'}
+                    'demographics': {'type': 'object', 'required': False, 'description': 'Patient demographics object'},
+                    'include_pdf': {
+                        'type': 'boolean',
+                        'required': False,
+                        'description': 'Set to true to add a generated PDF summary as a FHIR DocumentReference'
+                    }
                 },
                 'response': {
                     'success': True,
@@ -326,12 +336,13 @@ def api_docs():
             'curl -X POST http://localhost:5000/transform '
             '-F "composition=@composition.json" '
             '-F "mapping=@mapping.json" '
-            '-F "demographics=@person.json"'
+            '-F "demographics=@person.json" '
+            '-F "include_pdf=true"'
         ),
         'example_curl_json_body': (
             'curl -X POST http://localhost:5000/transform/json '
             '-H "Content-Type: application/json" '
-            '-d @payload.json'
+            '-d @payload.json # payload may include include_pdf=true'
         )
     }
     return jsonify(docs), 200

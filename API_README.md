@@ -223,7 +223,7 @@ python -m pytest test_openEHR_to_FHIR_transformer.py -q -p no:cacheprovider
 Run the client against a local API server:
 
 ```bash
-python fhir_client.py Corona_Anamnese_composition_example.json mapping_config_example.json output_bundle.json person.json
+python fhir_client.py Corona_Anamnese_composition_example.json mapping_config_example.json output_bundle.json person.json --include-pdf
 ```
 
 ## Notes
