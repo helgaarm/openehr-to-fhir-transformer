@@ -180,6 +180,7 @@ For fuller openEHR validation, keep Python as the FHIR mapping layer and add a J
 
 - The default output is a FHIR transaction `Bundle`.
 - Generated resources currently include `Patient`, `Encounter`, and configured `Observation` resources.
+- Repeated mapped archetypes get stable numeric ID suffixes, so transaction bundle `fullUrl` values remain unique.
 - UTC timestamps are emitted by the installed FHIR library as `+00:00`, for example `2024-06-25T10:00:00+00:00`.
 - Quantity values include the UCUM system and mapped UCUM code when a known unit is found, for example Celsius to `Cel`.
 - Common mojibake in source text is repaired while parsing, for example mis-decoded German characters and degree symbols.
@@ -205,8 +206,7 @@ python -m pytest test_openEHR_to_FHIR_transformer.py -q -p no:cacheprovider
 ## Extension Points
 
 - Replace the lightweight OPT check with full EHRbase openEHR SDK validation.
-- Add a Java sidecar validator that uses the EHRbase SDK validation, OPT, and serialization modules.
-- Add duplicate-safe resource ID generation when the same archetype appears more than once.
+- Implement a Java sidecar validator that uses the existing `template.java_validator_command` hook with EHRbase SDK validation, OPT, and serialization modules.
 - Extend `mapping_config_example.json` with additional archetypes, paths, FHIR profiles, components, and terminology mappings.
 - Add mappings for `Condition`, `MedicationRequest`, `Procedure`, or other FHIR resources as needed.
 

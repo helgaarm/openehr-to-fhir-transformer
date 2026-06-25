@@ -36,6 +36,7 @@ class OpenEHRToFHIRTransformer:
         self.mapping_config = mapping_config
         self.patient_reference: str = 'Patient/example'
         self.validation_messages: List[str] = []
+        self.resource_id_counts: Dict[str, int] = {}
 
     def load_composition(self, path_or_dict: Union[str, Dict[str, Any]]) -> Composition:
         """Load composition from file path or dictionary."""
@@ -86,6 +87,7 @@ class OpenEHRToFHIRTransformer:
         include_pdf: bool = False,
     ) -> List[Dict[str, Any]]:
         resources: List[Dict[str, Any]] = []
+        self.resource_id_counts = {}
 
         patient = self._map_patient(composition, patient_demographics)
         if patient:
@@ -143,14 +145,24 @@ class OpenEHRToFHIRTransformer:
 
     def _make_resource_id(self, item: ContentItem) -> str:
         uid = item.archetype_node_id or 'unknown'
-        normalized = uid.replace('openEHR-EHR-', '').replace('.', '-').replace('_', '-').lower()
-        normalized = ''.join(ch for ch in normalized if ch.isalnum() or ch in '-.')
-        return normalized[:64] or 'resource-1'
+        return self._make_unique_resource_id(self._normalize_resource_id(uid))
 
     def _make_resource_id_from_string(self, source: str) -> str:
+        return self._normalize_resource_id(source)
+
+    def _normalize_resource_id(self, source: str) -> str:
         normalized = source.replace('openEHR-EHR-', '').replace('.', '-').replace('_', '-').lower()
         normalized = ''.join(ch for ch in normalized if ch.isalnum() or ch in '-.')
         return normalized[:64] or 'resource-1'
+
+    def _make_unique_resource_id(self, base_id: str) -> str:
+        count = self.resource_id_counts.get(base_id, 0) + 1
+        self.resource_id_counts[base_id] = count
+        if count == 1:
+            return base_id
+
+        suffix = f'-{count}'
+        return f'{base_id[:64 - len(suffix)]}{suffix}'
 
     def _map_patient(
         self,

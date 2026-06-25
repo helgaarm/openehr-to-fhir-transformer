@@ -1,5 +1,6 @@
 import json
 import base64
+import copy
 import unittest
 from unittest.mock import patch
 
@@ -88,6 +89,20 @@ class TestOpenEHRToFHIRTransformer(unittest.TestCase):
         bundle_json = json.dumps(bundle, ensure_ascii=False)
         self.assertIn('"resourceType": "Bundle"', bundle_json)
         self.assertIn('"effectiveDateTime": "2024-06-25T10:00:00+00:00"', bundle_json)
+
+    def test_repeated_archetypes_get_unique_resource_ids(self):
+        composition = copy.deepcopy(self.composition)
+        repeated_item = copy.deepcopy(composition.data.content[0])
+        composition.data.content.append(repeated_item)
+
+        resources = self.transformer.map_composition_to_resources(composition)
+        resource_ids = [resource['id'] for resource in resources]
+        bundle = self.transformer.build_bundle(resources)
+        full_urls = [entry['fullUrl'] for entry in bundle['entry']]
+
+        self.assertEqual(len(resource_ids), len(set(resource_ids)))
+        self.assertEqual(len(full_urls), len(set(full_urls)))
+        self.assertIn('observation-story-v1-2', resource_ids)
 
     @patch('openEHR_to_FHIR_transformer.requests')
     def test_send_bundle_uses_requests_post(self, mock_requests):
