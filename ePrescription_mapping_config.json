@@ -11,17 +11,74 @@
       "archetype_id": "openEHR-EHR-INSTRUCTION.medication_order.v0",
       "resource_type": "MedicationRequest",
       "fhir_profile": "http://hl7.org/fhir/StructureDefinition/MedicationRequest",
-      "intent": "order",
-      "fields": {
-        "medication": "/activities[at0001]/description[at0002]/items[at0070]",
-        "route": "/activities[at0001]/description[at0002]/items[at0091]",
-        "dosageText": "/activities[at0001]/description[at0002]/items[at0009]",
-        "doseQuantity": "/activities[at0001]/description[at0002]/items[at0056]/items[at0058]/items[at0144]",
-        "additionalInstruction": "/activities[at0001]/description[at0002]/items[at0044]",
-        "reason": "/activities[at0001]/description[at0002]/items[at0018]",
-        "status": "/activities[at0001]/description[at0002]/items[at0113]/items[openEHR-EHR-CLUSTER.medication_course_summary.v0]/items[at0001]",
-        "authoredOn": "/activities[at0001]/description[at0002]/items[at0113]/items[openEHR-EHR-CLUSTER.medication_course_summary.v0]/items[at0002]"
-      },
+      "field_mappings": [
+        {
+          "target": "status",
+          "path": "/activities[at0001]/description[at0002]/items[at0113]/items[openEHR-EHR-CLUSTER.medication_course_summary.v0]/items[at0001]",
+          "type": "string",
+          "transform": "medication_request_status",
+          "default": "active"
+        },
+        {
+          "target": "intent",
+          "const": "order"
+        },
+        {
+          "target": "medication.concept.text",
+          "path": "/activities[at0001]/description[at0002]/items[at0070]",
+          "type": "string",
+          "default_from": "item.name",
+          "filter": {
+            "skip_generated_text": true
+          }
+        },
+        {
+          "target": "subject.reference",
+          "ref": "patient"
+        },
+        {
+          "target": "authoredOn",
+          "path": "/activities[at0001]/description[at0002]/items[at0113]/items[openEHR-EHR-CLUSTER.medication_course_summary.v0]/items[at0002]",
+          "type": "dateTime"
+        },
+        {
+          "target": "reason[0].concept.text",
+          "path": "/activities[at0001]/description[at0002]/items[at0018]",
+          "type": "string",
+          "filter": {
+            "skip_generated_text": true
+          }
+        },
+        {
+          "target": "dosageInstruction[0].text",
+          "path": "/activities[at0001]/description[at0002]/items[at0009]",
+          "type": "string",
+          "filter": {
+            "skip_generated_text": true
+          }
+        },
+        {
+          "target": "dosageInstruction[0].patientInstruction",
+          "path": "/activities[at0001]/description[at0002]/items[at0044]",
+          "type": "string",
+          "filter": {
+            "skip_generated_text": true
+          }
+        },
+        {
+          "target": "dosageInstruction[0].route.text",
+          "path": "/activities[at0001]/description[at0002]/items[at0091]",
+          "type": "string",
+          "filter": {
+            "skip_generated_text": true
+          }
+        },
+        {
+          "target": "dosageInstruction[0].doseAndRate[0].doseQuantity",
+          "path": "/activities[at0001]/description[at0002]/items[at0056]/items[at0058]/items[at0144]",
+          "type": "fhir"
+        }
+      ],
       "description": "Medication order instruction mapped to a FHIR MedicationRequest."
     }
   ]

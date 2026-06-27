@@ -171,6 +171,33 @@ Use `ePrescription_prefilled_example.json` for a readable medication order examp
 
 The generated `ePrescription (FHIR) - instance.json` is also useful for parser coverage, but it contains placeholder/random values and is less suitable as a human-readable demo.
 
+### Generic Field Mappings
+
+For resource types with a mapper adapter, `field_mappings` can assign openEHR values directly to FHIR paths:
+
+```json
+{
+  "target": "dosageInstruction[0].route.text",
+  "path": "/activities[at0001]/description[at0002]/items[at0091]",
+  "type": "string"
+}
+```
+
+Supported mapping inputs:
+
+- `path`: openEHR flattened path to extract.
+- `const`: fixed value.
+- `ref`: currently supports `patient`, which assigns the generated `Patient/{id}` reference.
+- `default`: fallback value if the source path is missing.
+- `default_from`: currently supports `item.name`.
+- `type`: `string`, `dateTime`, or `fhir`. `fhir` preserves converted FHIR values such as `Quantity`.
+- `transform`: currently supports `medication_request_status`.
+- `filter.skip_generated_text`: skips long high-randomness generated text values before applying defaults.
+
+Targets use dotted FHIR paths with optional zero-based array indexes, for example `reason[0].concept.text` or `dosageInstruction[0].doseAndRate[0].doseQuantity`.
+
+The ePrescription mapping enables this filter for free-text fields because `ePrescription (FHIR) - instance.json` contains generated placeholder strings. Use `ePrescription_prefilled_example.json` when you want readable demo output.
+
 ## Template and Java SDK Validation Hook
 
 The mapping config can declare expected template metadata:

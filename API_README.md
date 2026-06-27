@@ -154,7 +154,7 @@ The current mapping format uses a `mappings` array:
 
 Observation mappings can target exact flattened openEHR paths. Extra values can be mapped into FHIR `Observation.component[]` using `fields.components`.
 
-The ePrescription example uses `ePrescription_mapping_config.json` to map `openEHR-EHR-INSTRUCTION.medication_order.v0` to a FHIR `MedicationRequest`. Use `ePrescription_prefilled_example.json` for readable sample values.
+The ePrescription example uses `ePrescription_mapping_config.json` to map `openEHR-EHR-INSTRUCTION.medication_order.v0` to a FHIR `MedicationRequest`. Use `ePrescription_prefilled_example.json` for readable sample values. The ePrescription mapping uses `field_mappings` with dotted FHIR targets such as `medication.concept.text` and `dosageInstruction[0].route.text`.
 
 ### Demographics
 

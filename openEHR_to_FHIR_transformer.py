@@ -504,19 +504,47 @@ class OpenEHRToFHIRTransformer:
         fields = mapping.get('fields', {})
         flattened_values = self._flatten_instruction_values(item)
 
-        medication_text = self._text_from_path(flattened_values, fields.get('medication')) or item.name
         medication_request_data: Dict[str, Any] = {
             'id': self._make_resource_id(item),
-            'status': self._medication_request_status(
-                self._text_from_path(flattened_values, fields.get('status'))
-            ),
-            'intent': mapping.get('intent', 'order'),
-            'medication': {'concept': {'text': medication_text}},
-            'subject': {'reference': self.patient_reference},
         }
 
         if profile:
             medication_request_data['meta'] = {'profile': [profile]}
+
+        field_mappings = mapping.get('field_mappings')
+        if field_mappings:
+            self._apply_field_mappings(medication_request_data, field_mappings, flattened_values, item)
+        else:
+            self._apply_legacy_medication_request_fields(
+                medication_request_data,
+                fields,
+                flattened_values,
+                item,
+                mapping,
+            )
+
+        medication_request = MedicationRequest(**medication_request_data)
+        return medication_request.dict(by_alias=True, exclude_none=True)
+
+    def _apply_legacy_medication_request_fields(
+        self,
+        medication_request_data: Dict[str, Any],
+        fields: Dict[str, Any],
+        flattened_values: List[FlattenedValue],
+        item: ContentItem,
+        mapping: Dict[str, Any],
+    ) -> None:
+        medication_text = self._text_from_path(flattened_values, fields.get('medication')) or item.name
+        medication_request_data.update(
+            {
+                'status': self._medication_request_status(
+                    self._text_from_path(flattened_values, fields.get('status'))
+                ),
+                'intent': mapping.get('intent', 'order'),
+                'medication': {'concept': {'text': medication_text}},
+                'subject': {'reference': self.patient_reference},
+            }
+        )
 
         authored_on = self._fhir_datetime_from_path(flattened_values, fields.get('authoredOn'))
         if authored_on:
@@ -530,8 +558,126 @@ class OpenEHRToFHIRTransformer:
         if dosage_instruction:
             medication_request_data['dosageInstruction'] = [dosage_instruction]
 
-        medication_request = MedicationRequest(**medication_request_data)
-        return medication_request.dict(by_alias=True, exclude_none=True)
+    def _apply_field_mappings(
+        self,
+        resource_data: Dict[str, Any],
+        field_mappings: List[Dict[str, Any]],
+        flattened_values: List[FlattenedValue],
+        item: ContentItem,
+    ) -> None:
+        for field_mapping in field_mappings:
+            target = field_mapping.get('target')
+            if not target:
+                continue
+
+            value = self._field_mapping_value(field_mapping, flattened_values, item)
+            if value is None or value == '':
+                continue
+
+            self._set_fhir_path(resource_data, target, value)
+
+    def _field_mapping_value(
+        self,
+        field_mapping: Dict[str, Any],
+        flattened_values: List[FlattenedValue],
+        item: ContentItem,
+    ) -> Any:
+        if 'const' in field_mapping:
+            value = field_mapping['const']
+        elif field_mapping.get('ref') == 'patient':
+            value = self.patient_reference
+        else:
+            value_type = field_mapping.get('type', 'fhir')
+            value = self._value_from_mapping_path(flattened_values, field_mapping.get('path'), value_type)
+
+        if value is not None and self._should_skip_generated_text(value, field_mapping):
+            value = None
+
+        if value is None and field_mapping.get('default_from') == 'item.name':
+            value = item.name
+        if value is None and 'default' in field_mapping:
+            value = field_mapping['default']
+
+        transform = field_mapping.get('transform')
+        if transform == 'medication_request_status':
+            value = self._medication_request_status(None if value is None else str(value))
+
+        return value
+
+    def _should_skip_generated_text(self, value: Any, field_mapping: Dict[str, Any]) -> bool:
+        filter_config = field_mapping.get('filter')
+        if not isinstance(filter_config, dict):
+            return False
+        if not filter_config.get('skip_generated_text'):
+            return False
+        if not isinstance(value, str):
+            return False
+
+        text = value.strip()
+        if len(text) < int(filter_config.get('min_length', 120)):
+            return False
+        words = [part for part in text.replace(',', ' ').replace('.', ' ').split() if part]
+        if len(words) < int(filter_config.get('min_words', 3)):
+            return False
+
+        alphabetic = [char for char in text if char.isalpha()]
+        if not alphabetic:
+            return False
+
+        uppercase = sum(1 for char in alphabetic if char.isupper())
+        uppercase_ratio = uppercase / len(alphabetic)
+        max_uppercase_ratio = float(filter_config.get('max_uppercase_ratio', 0.35))
+        return uppercase_ratio > max_uppercase_ratio
+
+    def _value_from_mapping_path(
+        self,
+        flattened_values: List[FlattenedValue],
+        path: Optional[str],
+        value_type: str,
+    ) -> Optional[Any]:
+        if not path:
+            return None
+        if value_type == 'dateTime':
+            return self._fhir_datetime_from_path(flattened_values, path)
+
+        value = self._fhir_value_from_path(flattened_values, path)
+        if value is None:
+            return None
+        if value_type == 'string':
+            return self._string_from_fhir_value(value)
+        return value
+
+    def _set_fhir_path(self, resource_data: Dict[str, Any], target: str, value: Any) -> None:
+        current: Any = resource_data
+        parts = self._parse_fhir_path(target)
+
+        for index, (name, list_index) in enumerate(parts):
+            is_last = index == len(parts) - 1
+
+            if list_index is None:
+                if is_last:
+                    current[name] = value
+                    return
+                current = current.setdefault(name, [] if parts[index + 1][1] is not None else {})
+                continue
+
+            items = current.setdefault(name, [])
+            while len(items) <= list_index:
+                items.append({})
+            if is_last:
+                items[list_index] = value
+                return
+            current = items[list_index]
+
+    def _parse_fhir_path(self, target: str) -> List[tuple[str, Optional[int]]]:
+        parts: List[tuple[str, Optional[int]]] = []
+        for raw_part in target.split('.'):
+            if '[' in raw_part and raw_part.endswith(']'):
+                name, index_text = raw_part[:-1].split('[', 1)
+                parts.append((name, int(index_text)))
+            else:
+                parts.append((raw_part, None))
+        return parts
 
     def _map_dosage_instruction(
         self,

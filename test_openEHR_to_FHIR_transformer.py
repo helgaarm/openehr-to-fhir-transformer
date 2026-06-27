@@ -129,7 +129,9 @@ class TestOpenEHRToFHIRTransformer(unittest.TestCase):
         self.assertEqual(medication_request['intent'], 'order')
         self.assertIn('concept', medication_request['medication'])
         self.assertEqual(medication_request['subject']['reference'], f"Patient/{resources[0]['id']}")
-        self.assertIn('dosageInstruction', medication_request)
+        self.assertEqual(medication_request['medication']['concept']['text'], 'Medication order')
+        self.assertNotIn('text', medication_request['dosageInstruction'][0])
+        self.assertNotIn('route', medication_request['dosageInstruction'][0])
         self.assertEqual(bundle['entry'][-1]['request']['url'], 'MedicationRequest')
 
     def test_prefilled_eprescription_example_has_readable_medication_request(self):
